@@ -462,16 +462,25 @@ class SchedulerServer:
             if self.config.transport == "stdio":
                 self.mcp.run(transport="stdio")
             else:
-                # Set environment variables for uvicorn
-                os.environ["UVICORN_HOST"] = "0.0.0.0"
-                os.environ["UVICORN_PORT"] = str(os.getenv("PORT", "8000"))
+                # Monkey-patch uvicorn config before importing
+                import sys
+                import uvicorn
                 
-                # Also try MCP-specific env vars
-                os.environ["MCP_HOST"] = "0.0.0.0"
-                os.environ["MCP_PORT"] = str(os.getenv("PORT", "8000"))
+                # Override uvicorn's Config class
+                original_config = uvicorn.Config
+                
+                class PatchedConfig(original_config):
+                    def __init__(self, *args, **kwargs):
+                        # Force host to 0.0.0.0 and use PORT env var
+                        kwargs['host'] = '0.0.0.0'
+                        kwargs['port'] = int(os.getenv("PORT", "8000"))
+                        super().__init__(*args, **kwargs)
+                
+                # Replace the Config class
+                uvicorn.Config = PatchedConfig
                 
                 port = os.getenv("PORT", "8000")
-                print(f"Attempting to bind to 0.0.0.0:{port}", file=sys.stderr)
+                print(f"Patched uvicorn to bind to 0.0.0.0:{port}", file=sys.stderr)
                 
                 self.mcp.run(transport="sse")
         except Exception as e:
