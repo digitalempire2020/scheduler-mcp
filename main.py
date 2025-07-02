@@ -36,6 +36,7 @@ except ImportError:
 scheduler = None
 server = None
 scheduler_task = None
+well_known_runner = None
 
 def log_to_stderr(message):
     """Log messages to stderr instead of stdout to avoid interfering with stdio transport."""
@@ -108,13 +109,34 @@ class SafeJsonStdin:
     def __getattr__(self, name):
         return getattr(self.original_stdin, name)
 
-def start_well_known_server():
+async def start_well_known_server_async(config):
+    """Start the well-known server asynchronously."""
+    global well_known_runner
+    
     app = aiohttp.web.Application()
     setup_well_known(app)
-    # Use the same address/port as the MCP server if possible
-    from mcp_scheduler.config import Config
-    config = Config()
-    aiohttp.web.run_app(app, host=config.server_address, port=config.server_port + 1)
+    
+    runner = aiohttp.web.AppRunner(app)
+    await runner.setup()
+    well_known_runner = runner
+    
+    site = aiohttp.web.TCPSite(runner, config.server_address, config.server_port + 1)
+    await site.start()
+    log_to_stderr(f"Well-known server started on port {config.server_port + 1}")
+
+def run_well_known_server_in_thread(config):
+    """Run the well-known server in a separate thread with its own event loop."""
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    
+    try:
+        loop.run_until_complete(start_well_known_server_async(config))
+        # Keep the loop running
+        loop.run_forever()
+    except Exception as e:
+        log_to_stderr(f"Error running well-known server: {e}")
+    finally:
+        loop.close()
 
 def main():
     """Main entry point."""
@@ -256,10 +278,15 @@ def main():
         scheduler_thread.start()
         log_to_stderr(f"Scheduler started in background thread")
 
-        # Si el transporte es SSE, lanza el servidor well-known en un thread aparte
+        # If transport is SSE, start the well-known server in a separate thread
         if config.transport == "sse":
             log_to_stderr(f"Starting well-known server on port {config.server_port + 1}")
-            threading.Thread(target=start_well_known_server, daemon=True).start()
+            well_known_thread = threading.Thread(
+                target=run_well_known_server_in_thread,
+                args=(config,),
+                daemon=True
+            )
+            well_known_thread.start()
 
         # Start the MCP server (this will block with stdio transport)
         log_to_stderr(f"Starting MCP server with {config.transport} transport")
