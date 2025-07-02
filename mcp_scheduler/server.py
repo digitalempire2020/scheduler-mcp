@@ -6,6 +6,7 @@ import sys
 import json
 import re
 import platform
+import os
 from typing import Dict, List, Any, Optional
 
 from mcp.server.fastmcp import FastMCP, Context
@@ -461,9 +462,18 @@ class SchedulerServer:
             if self.config.transport == "stdio":
                 self.mcp.run(transport="stdio")
             else:
-                self.mcp.run(
-                    transport="sse"
-                )
+                # Set environment variables for uvicorn
+                os.environ["UVICORN_HOST"] = "0.0.0.0"
+                os.environ["UVICORN_PORT"] = str(os.getenv("PORT", "8000"))
+                
+                # Also try MCP-specific env vars
+                os.environ["MCP_HOST"] = "0.0.0.0"
+                os.environ["MCP_PORT"] = str(os.getenv("PORT", "8000"))
+                
+                port = os.getenv("PORT", "8000")
+                print(f"Attempting to bind to 0.0.0.0:{port}", file=sys.stderr)
+                
+                self.mcp.run(transport="sse")
         except Exception as e:
             logger.error(f"Error starting MCP server: {e}")
             print(f"Error starting MCP server: {e}", file=sys.stderr)
