@@ -3,3 +3,5 @@ pydantic>=2.0.0
 croniter>=1.0.0
 aiohttp>=3.8.0
 openai>=1.0.0
+fastmcp==1.0      # pin until scheduler code drops host=
+pytest-asyncio    # needed only for test-time, harmless in prod
