@@ -462,8 +462,7 @@ class SchedulerServer:
             if self.config.transport == "stdio":
                 self.mcp.run(transport="stdio")
             else:
-                # Monkey-patch uvicorn config before importing
-                import sys
+                # Monkey-patch uvicorn config
                 import uvicorn
                 
                 # Override uvicorn's Config class
