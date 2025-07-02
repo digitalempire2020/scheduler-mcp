@@ -462,8 +462,7 @@ class SchedulerServer:
                 self.mcp.run(transport="stdio")
             else:
                 self.mcp.run(
-                    transport="sse",
-                    port=self.config.server_port
+                    transport="sse"
                 )
         except Exception as e:
             logger.error(f"Error starting MCP server: {e}")
