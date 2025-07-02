@@ -463,7 +463,6 @@ class SchedulerServer:
             else:
                 self.mcp.run(
                     transport="sse",
-                    host=self.config.server_address,
                     port=self.config.server_port
                 )
         except Exception as e:
